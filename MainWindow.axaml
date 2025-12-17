@@ -48,13 +48,13 @@
                 <Slider Name="FontSizeSlider" 
                         Width="80" 
                         Height="20"
-                        Minimum="10" 
+                        Minimum="5" 
                         Maximum="24" 
-                        Value="14"
-                        TickFrequency="2"
+                        Value="8"
+                        TickFrequency="1"
                         ValueChanged="FontSizeSlider_ValueChanged"/>
                 <TextBlock Name="FontSizeText" 
-                           Text="14" 
+                           Text="8" 
                            Foreground="White" 
                            FontSize="10" 
                            HorizontalAlignment="Center"/>

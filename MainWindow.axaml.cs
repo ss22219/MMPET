@@ -24,7 +24,7 @@ public partial class MainWindow : Window
     private ObservableCollection<PetDisplayInfo> _petList = new();
     private OverlayWindow? _overlayWindow;
     private bool _overlayEnabled = false;
-    public float LabelFontSize { get; set; } = 10f;
+    public float LabelFontSize { get; set; } = 8f;
 
     
 
