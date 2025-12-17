@@ -266,10 +266,8 @@ public partial class OverlayWindow : Window
     private TextBlock CreatePetLabel(PetDisplayInfo pet, Point screenPos, double distance)
     {
         // 计算距离（转换为米）
-        var distanceInMeters = distance / 1000.0;
-        var distanceText = distanceInMeters < 1000 
-            ? $"{distanceInMeters:F0}m" 
-            : $"{distanceInMeters / 1000:F1}km";
+        var distanceInMeters = distance / 100.0;
+        var distanceText =  $"{distanceInMeters:F0}m";
         
         var label = new TextBlock
         {
