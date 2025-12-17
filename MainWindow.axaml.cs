@@ -18,6 +18,7 @@ public partial class MainWindow : Window
 {
     private BattleEntitiesAPI? _api;
     private Timer? _refreshTimer;
+    private Timer? _positionTimer;
     private Dictionary<string, string> _petNames = new();
     private ObservableCollection<PetDisplayInfo> _petList = new();
     private OverlayWindow? _overlayWindow;
@@ -33,9 +34,13 @@ public partial class MainWindow : Window
         LoadPetNames();
         PetListBox.ItemsSource = _petList;
         
-        // 设置定时刷新（每100毫秒，更流畅）
-        _refreshTimer = new Timer(100);
+        // 设置定时刷新（每500毫秒更新列表信息）
+        _refreshTimer = new Timer(500);
         _refreshTimer.Elapsed += RefreshTimer_Elapsed;
+        
+        // 设置位置更新定时器（每20毫秒更新位置信息）
+        _positionTimer = new Timer(20);
+        _positionTimer.Elapsed += PositionTimer_Elapsed;
     }
 
     private void LoadPetNames()
@@ -81,6 +86,7 @@ public partial class MainWindow : Window
             
             // 开始定时刷新
             _refreshTimer?.Start();
+            _positionTimer?.Start();
             
             // 立即刷新一次
             await RefreshPets();
@@ -145,6 +151,54 @@ public partial class MainWindow : Window
     private async void RefreshTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
     {
         await RefreshPets();
+    }
+
+    private void PositionTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        // 只更新宠物位置信息，不重新获取宠物列表
+        if (_overlayEnabled && _overlayWindow != null && _petList.Count > 0 && _api != null)
+        {
+            // 在后台线程更新宠物位置
+            Task.Run(() =>
+            {
+                try
+                {
+                    var validPets = new List<PetDisplayInfo>();
+                    
+                    // 更新每个宠物的位置信息，过滤掉无效的宠物
+                    foreach (var pet in _petList.ToList())
+                    {
+                        if (pet.EntityInfo != null)
+                        {
+                            try
+                            {
+                                // 尝试刷新位置，如果成功说明宠物还存在
+                                _api.RefreshEntityPosition(pet.EntityInfo);
+                                validPets.Add(pet);
+                            }
+                            catch
+                            {
+                                // 位置刷新失败，可能宠物已消失，不添加到有效列表
+                                // 这样可以快速移除消失的宠物，不需要等500ms
+                            }
+                        }
+                    }
+
+                    // 在UI线程更新覆盖层，只显示有效的宠物
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        _overlayWindow.UpdatePetOverlay(validPets);
+                        // 定期强制设置为最顶层
+                        _overlayWindow.ForceTopMost();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    // 位置更新失败时不影响主流程
+                    Console.WriteLine($"位置更新失败: {ex.Message}");
+                }
+            });
+        }
     }
 
     private async Task RefreshPets()
@@ -219,14 +273,6 @@ public partial class MainWindow : Window
         }
 
         StatusText.Text = $"找到 {_petList.Count} 个宠物实体";
-
-        // 更新覆盖层
-        if (_overlayEnabled && _overlayWindow != null)
-        {
-            _overlayWindow.UpdatePetOverlay(_petList.ToList());
-            // 定期强制设置为最顶层
-            _overlayWindow.ForceTopMost();
-        }
     }
 
     private int ReadNpcId(IntPtr npcPtr)
@@ -253,6 +299,8 @@ public partial class MainWindow : Window
     {
         _refreshTimer?.Stop();
         _refreshTimer?.Dispose();
+        _positionTimer?.Stop();
+        _positionTimer?.Dispose();
         _overlayWindow?.Close();
         base.OnClosed(e);
     }
