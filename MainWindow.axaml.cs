@@ -155,11 +155,12 @@ public partial class MainWindow : Window
         {
             await Task.Run(() =>
             {
-                // 获取 NPC 地图中的宠物
+                // 获取 NPC 地图中的宠物，只显示可交互状态的宠物
                 var npcEntities = _api.GetNpcMap();
                 var petEntities = npcEntities.Where(entity => 
-                    entity.ClassName.Contains("BP_PetNPC_Common") ||
-                    entity.ParentClasses.Any(c => c.Contains("NpcCharacter"))
+                    (entity.ClassName.Contains("BP_PetNPC_Common") ||
+                     entity.ParentClasses.Any(c => c.Contains("NpcCharacter"))) &&
+                    entity.InteractiveState == ENpcPetState.Active
                 ).ToList();
 
                 // 更新UI（需要在UI线程中执行）
