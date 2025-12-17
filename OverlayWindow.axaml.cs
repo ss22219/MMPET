@@ -232,8 +232,7 @@ public partial class OverlayWindow : Window
             Background = new SolidColorBrush(Color.FromArgb(180, 0, 0, 0)), // 更不透明的黑色背景
             Padding = new Thickness(6, 3),
             FontSize = 14,
-            FontWeight = FontWeight.Bold,
-            CornerRadius = new CornerRadius(3) // 圆角
+            FontWeight = FontWeight.Bold
         };
 
         // 设置位置
