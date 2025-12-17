@@ -6,7 +6,7 @@
         WindowStartupLocation="Manual"
         Background="Transparent"
         TransparencyLevelHint="Transparent"
-        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaToDecorationsHint="False"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaTitleBarHeightHint="-1"
         SystemDecorations="None"

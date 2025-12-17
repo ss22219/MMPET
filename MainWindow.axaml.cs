@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private ObservableCollection<PetDisplayInfo> _petList = new();
     private OverlayWindow? _overlayWindow;
     private bool _overlayEnabled = false;
+    public float LabelFontSize { get; set; } = 10f;
 
     
 
@@ -75,7 +76,6 @@ public partial class MainWindow : Window
                 _api = new BattleEntitiesAPI("EM-Win64-Shipping");
             });
 
-            RefreshButton.IsEnabled = true;
             OverlayButton.IsEnabled = true;
             StatusText.Text = "已连接到 EM-Win64-Shipping 进程";
             
@@ -92,10 +92,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private async void RefreshButton_Click(object? sender, RoutedEventArgs e)
-    {
-        await RefreshPets();
-    }
+
 
 
 
@@ -108,6 +105,7 @@ public partial class MainWindow : Window
             // 开启覆盖层
             _overlayWindow = new OverlayWindow();
             _overlayWindow.SetAPI(_api!);
+            _overlayWindow.LabelFontSize = LabelFontSize;
             _overlayWindow.Show(); // 显示覆盖窗口
             
             _overlayEnabled = true;
@@ -125,6 +123,18 @@ public partial class MainWindow : Window
             OverlayButton.Content = "开启覆盖";
             OverlayButton.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 107, 53));
             StatusText.Text = "覆盖层已关闭";
+        }
+    }
+
+    private void FontSizeSlider_ValueChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        var fontSize = (float)e.NewValue;
+        LabelFontSize = fontSize;
+        FontSizeText.Text = fontSize.ToString("F0");
+        
+        if (_overlayWindow != null)
+        {
+            _overlayWindow.LabelFontSize = fontSize;
         }
     }
 
@@ -182,7 +192,7 @@ public partial class MainWindow : Window
                 
                 var displayInfo = new PetDisplayInfo
                 {
-                    DisplayName = $"{petName} (ID: {npcId})",
+                    DisplayName = petName,
                     Details = $"类名: {pet.ClassName} | 实体ID: {pet.EntityId}",
                     Position = $"位置: {pet.Position}",
                     NpcId = npcId,
@@ -196,7 +206,7 @@ public partial class MainWindow : Window
                 // 如果读取失败，仍然显示基本信息
                 var displayInfo = new PetDisplayInfo
                 {
-                    DisplayName = $"{pet.Name} (读取失败)",
+                    DisplayName = pet.Name,
                     Details = $"类名: {pet.ClassName} | 实体ID: {pet.EntityId}",
                     Position = $"位置: {pet.Position}",
                     NpcId = 0,

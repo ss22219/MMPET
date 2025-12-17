@@ -42,6 +42,9 @@ public partial class OverlayWindow : Window
     [DllImport("user32.dll")]
     private static extern bool ClientToScreen(IntPtr hWnd, ref POINT lpPoint);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT
     {
@@ -69,6 +72,10 @@ public partial class OverlayWindow : Window
     private const uint WS_EX_TRANSPARENT = 0x20;
     private const uint WS_EX_TOPMOST = 0x8;
     
+    private const int GWL_STYLE = -16;
+    private const uint WS_POPUP = 0x80000000;
+    private const uint WS_VISIBLE = 0x10000000;
+    
     private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
     private const uint SWP_NOMOVE = 0x0002;
     private const uint SWP_NOSIZE = 0x0001;
@@ -76,6 +83,9 @@ public partial class OverlayWindow : Window
 
     private BattleEntitiesAPI? _api;
     private readonly Dictionary<int, TextBlock> _petLabels = new();
+    private IntPtr _gameWindowHandle = IntPtr.Zero;
+    
+    public float LabelFontSize { get; set; } = 10f;
     private MainWindow? _mainWindow;
     
 
@@ -86,8 +96,6 @@ public partial class OverlayWindow : Window
     {
         InitializeComponent();
         
-        // 设置窗口状态，尺寸和位置将由GetGameWindowSize动态设置
-        this.WindowState = WindowState.Normal;
         
         // 窗口加载完成后设置透明穿透
         this.Opened += OverlayWindow_Opened;
@@ -109,14 +117,18 @@ public partial class OverlayWindow : Window
             var hwnd = this.TryGetPlatformHandle()?.Handle;
             if (hwnd.HasValue)
             {
-                // 设置窗口样式
+                // 设置窗口样式为无边框弹出窗口
+                uint style = GetWindowLong(hwnd.Value, GWL_STYLE);
+                SetWindowLong(hwnd.Value, GWL_STYLE, WS_POPUP | WS_VISIBLE);
+                
+                // 设置扩展窗口样式
                 uint exStyle = GetWindowLong(hwnd.Value, GWL_EXSTYLE);
                 SetWindowLong(hwnd.Value, GWL_EXSTYLE, exStyle | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST);
                 
                 // 强制设置为最顶层
                 SetWindowPos(hwnd.Value, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
                 
-
+                
             }
         }
         
@@ -155,9 +167,34 @@ public partial class OverlayWindow : Window
         }
     }
 
+    /// <summary>
+    /// 检查游戏窗口是否在前台
+    /// </summary>
+    private bool IsGameWindowInForeground()
+    {
+        if (_gameWindowHandle == IntPtr.Zero)
+            return false;
+
+        var foregroundWindow = GetForegroundWindow();
+        return foregroundWindow == _gameWindowHandle;
+    }
+
     public void UpdatePetOverlay(List<PetDisplayInfo> pets)
     {
         if (_api == null) return;
+
+        // 检查游戏窗口是否在前台
+        if (!IsGameWindowInForeground())
+        {
+            // 游戏窗口不在前台，隐藏覆盖层
+            this.IsVisible = false;
+            return;
+        }
+        else
+        {
+            // 游戏窗口在前台，显示覆盖层
+            this.IsVisible = true;
+        }
 
         try
         {
@@ -231,7 +268,7 @@ public partial class OverlayWindow : Window
             Foreground = new SolidColorBrush(Colors.White),
             Background = new SolidColorBrush(Color.FromArgb(180, 0, 0, 0)), // 更不透明的黑色背景
             Padding = new Thickness(6, 3),
-            FontSize = 14,
+            FontSize = LabelFontSize,
             FontWeight = FontWeight.Bold
         };
 
@@ -304,6 +341,7 @@ public partial class OverlayWindow : Window
                 if (processes.Length > 0 && processes[0].MainWindowHandle != IntPtr.Zero)
                 {
                     gameWindow = processes[0].MainWindowHandle;
+                    _gameWindowHandle = gameWindow; // 保存游戏窗口句柄
                 }
             }
             catch { }
