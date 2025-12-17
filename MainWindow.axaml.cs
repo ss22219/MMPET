@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private BattleEntitiesAPI? _api;
     private Timer? _refreshTimer;
     private Timer? _positionTimer;
+    private Timer? _validationTimer;
     private Dictionary<string, string> _petNames = new();
     private ObservableCollection<PetDisplayInfo> _petList = new();
     private OverlayWindow? _overlayWindow;
@@ -41,6 +42,10 @@ public partial class MainWindow : Window
         // 设置位置更新定时器（每20毫秒更新位置信息）
         _positionTimer = new Timer(20);
         _positionTimer.Elapsed += PositionTimer_Elapsed;
+        
+        // 设置标签验证定时器（每500毫秒检查标签是否对应有效宠物）
+        _validationTimer = new Timer(500);
+        _validationTimer.Elapsed += ValidationTimer_Elapsed;
     }
 
     private void LoadPetNames()
@@ -87,6 +92,7 @@ public partial class MainWindow : Window
             // 开始定时刷新
             _refreshTimer?.Start();
             _positionTimer?.Start();
+            _validationTimer?.Start();
             
             // 立即刷新一次
             await RefreshPets();
@@ -163,31 +169,19 @@ public partial class MainWindow : Window
             {
                 try
                 {
-                    var validPets = new List<PetDisplayInfo>();
-                    
-                    // 更新每个宠物的位置信息，过滤掉无效的宠物
-                    foreach (var pet in _petList.ToList())
+                    // 更新每个宠物的位置信息
+                    foreach (var pet in _petList)
                     {
                         if (pet.EntityInfo != null)
                         {
-                            try
-                            {
-                                // 尝试刷新位置，如果成功说明宠物还存在
-                                _api.RefreshEntityPosition(pet.EntityInfo);
-                                validPets.Add(pet);
-                            }
-                            catch
-                            {
-                                // 位置刷新失败，可能宠物已消失，不添加到有效列表
-                                // 这样可以快速移除消失的宠物，不需要等500ms
-                            }
+                            _api.RefreshEntityPosition(pet.EntityInfo);
                         }
                     }
 
-                    // 在UI线程更新覆盖层，只显示有效的宠物
+                    // 在UI线程更新覆盖层
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
-                        _overlayWindow.UpdatePetOverlay(validPets);
+                        _overlayWindow.UpdatePetOverlay(_petList.ToList());
                         // 定期强制设置为最顶层
                         _overlayWindow.ForceTopMost();
                     });
@@ -196,6 +190,45 @@ public partial class MainWindow : Window
                 {
                     // 位置更新失败时不影响主流程
                     Console.WriteLine($"位置更新失败: {ex.Message}");
+                }
+            });
+        }
+    }
+
+    private void ValidationTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    {
+        // 检查覆盖层标签对应的宠物是否还在主界面列表中
+        if (_overlayEnabled && _overlayWindow != null && _petList.Count > 0 && _api != null)
+        {
+            Task.Run(() =>
+            {
+                try
+                {
+                    // 获取当前的NPC地图
+                    var currentNpcs = _api.GetNpcMap();
+                    var activeNpcs = currentNpcs.Where(entity => 
+                        (entity.ClassName.Contains("BP_PetNPC_Common") ||
+                         entity.ParentClasses.Any(c => c.Contains("NpcCharacter"))) &&
+                        entity.InteractiveState == ENpcPetState.Active
+                    ).ToList();
+                    
+                    var currentNpcIds = new HashSet<int>(activeNpcs.Select(n => n.EntityId));
+                    
+                    // 过滤出仍然存在的宠物
+                    var validPets = _petList.Where(pet => 
+                        pet.EntityInfo != null && 
+                        currentNpcIds.Contains(pet.EntityInfo.EntityId)
+                    ).ToList();
+
+                    // 在UI线程更新覆盖层，移除不存在的宠物标签
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        _overlayWindow.UpdatePetOverlay(validPets);
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"标签验证失败: {ex.Message}");
                 }
             });
         }
@@ -301,6 +334,8 @@ public partial class MainWindow : Window
         _refreshTimer?.Dispose();
         _positionTimer?.Stop();
         _positionTimer?.Dispose();
+        _validationTimer?.Stop();
+        _validationTimer?.Dispose();
         _overlayWindow?.Close();
         base.OnClosed(e);
     }
