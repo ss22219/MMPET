@@ -278,6 +278,12 @@ public partial class MainWindow : Window
                 int npcId = ReadNpcId(pet.EntityPtr);
                 string petName = GetPetName(npcId);
                 
+                // 只显示已知宠物，跳过未知宠物
+                if (petName.StartsWith("未知宠物"))
+                {
+                    continue;
+                }
+                
                 var displayInfo = new PetDisplayInfo
                 {
                     DisplayName = petName,
@@ -291,21 +297,12 @@ public partial class MainWindow : Window
             }
             catch (Exception)
             {
-                // 如果读取失败，仍然显示基本信息
-                var displayInfo = new PetDisplayInfo
-                {
-                    DisplayName = pet.Name,
-                    Details = $"类名: {pet.ClassName} | 实体ID: {pet.EntityId}",
-                    Position = $"位置: {pet.Position}",
-                    NpcId = 0,
-                    EntityInfo = pet
-                };
-
-                _petList.Add(displayInfo);
+                // 如果读取失败，跳过该宠物，不显示
+                continue;
             }
         }
 
-        StatusText.Text = $"找到 {_petList.Count} 个宠物实体";
+        StatusText.Text = $"找到 {_petList.Count} 个已知宠物";
     }
 
     private int ReadNpcId(IntPtr npcPtr)
