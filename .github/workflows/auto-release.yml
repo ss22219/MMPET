@@ -1,0 +1,83 @@
+name: Auto Release on Tag Push
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  PROJECT_NAME: 'MMPET'
+
+jobs:
+  auto-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Get Tag Name
+      id: get_tag
+      shell: bash
+      run: |
+        TAG_NAME=${GITHUB_REF#refs/tags/}
+        echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+    - name: Get Tag Message for Release Notes
+      id: get_tag_message
+      shell: bash
+      run: |
+        # 获取该标签的说明信息，如果为空则设置一个默认描述
+        TAG_MESSAGE=$(git tag -l --format='%(contents)' "${{ steps.get_tag.outputs.tag_name }}")
+        if [ -z "$TAG_MESSAGE" ]; then
+          TAG_MESSAGE="Release ${{ steps.get_tag.outputs.tag_name }} (No detailed tag message provided)."
+        fi
+        # 使用heredoc方式处理多行文本，避免转义字符问题
+        {
+          echo 'tag_message<<EOF'
+          echo "$TAG_MESSAGE"
+          echo 'EOF'
+        } >> $GITHUB_OUTPUT
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Build with AOT
+      run: |
+        dotnet publish .\MMPET.csproj `
+          -r win-x64 `
+          -c Release `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:PublishTrimmed=true `
+          -p:PublishAot=true `
+          -o ./publish
+
+    - name: Create 7z Package
+      shell: pwsh
+      run: |
+        $tag = "${{ steps.get_tag.outputs.tag_name }}"
+        $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $archiveName = "${{ env.PROJECT_NAME }}-$tag-$timestamp-win-x64.7z"
+        7z a -t7z -mx=9 "$archiveName" "./publish/*"
+        (Get-FileHash "$archiveName" -Algorithm SHA256).Hash | Out-File "$archiveName.sha256"
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get_tag.outputs.tag_name }}
+        name: "${{ env.PROJECT_NAME }} ${{ steps.get_tag.outputs.tag_name }}"
+        body: ${{ steps.get_tag_message.outputs.tag_message }}
+        draft: false
+        prerelease: false
+        generate_release_notes: false
+        files: |
+          ${{ env.PROJECT_NAME }}-${{ steps.get_tag.outputs.tag_name }}-*.7z
+          ${{ env.PROJECT_NAME }}-${{ steps.get_tag.outputs.tag_name }}-*.7z.sha256
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

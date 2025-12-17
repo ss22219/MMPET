@@ -1,0 +1,25 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MMPET.OverlayWindow"
+        Title="MMPET Overlay"
+        WindowState="Normal"
+        WindowStartupLocation="Manual"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="NoChrome"
+        ExtendClientAreaTitleBarHeightHint="-1"
+        SystemDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        CanResize="False"
+        BorderThickness="0"
+        Padding="0"
+        Margin="0">
+    
+    <Canvas Name="OverlayCanvas" Background="Transparent">
+
+        
+        <!-- 宠物名称标签将动态添加到这里 -->
+    </Canvas>
+</Window>
