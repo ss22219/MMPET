@@ -244,8 +244,11 @@ public partial class OverlayWindow : Window
                     
 
                     
+                    // 计算距离
+                    var distance = MathUtils.Distance3D(petPosition, cameraLocation);
+                    
                     // 创建宠物名称标签
-                    var label = CreatePetLabel(pet, new Point(clampedX, clampedY));
+                    var label = CreatePetLabel(pet, new Point(clampedX, clampedY), distance);
                     OverlayCanvas.Children.Add(label);
                     _petLabels[pet.NpcId] = label;
                     labelCount++;
@@ -260,16 +263,23 @@ public partial class OverlayWindow : Window
         }
     }
 
-    private TextBlock CreatePetLabel(PetDisplayInfo pet, Point screenPos)
+    private TextBlock CreatePetLabel(PetDisplayInfo pet, Point screenPos, double distance)
     {
+        // 计算距离（转换为米）
+        var distanceInMeters = distance / 1000.0;
+        var distanceText = distanceInMeters < 1000 
+            ? $"{distanceInMeters:F0}m" 
+            : $"{distanceInMeters / 1000:F1}km";
+        
         var label = new TextBlock
         {
-            Text = pet.DisplayName,
+            Text = $"{pet.DisplayName}\n{distanceText}",
             Foreground = new SolidColorBrush(Colors.White),
             Background = new SolidColorBrush(Color.FromArgb(180, 0, 0, 0)), // 更不透明的黑色背景
             Padding = new Thickness(6, 3),
             FontSize = LabelFontSize,
-            FontWeight = FontWeight.Bold
+            FontWeight = FontWeight.Bold,
+            TextAlignment = TextAlignment.Center
         };
 
         // 设置位置
